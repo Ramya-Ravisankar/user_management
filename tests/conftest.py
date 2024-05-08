@@ -13,7 +13,7 @@ Fixtures:
 - `setup_database`: Sets up and tears down the database before and after each test.
 """
 
-## Standard library imports
+# Standard library imports
 from builtins import Exception, range, str
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch
@@ -36,6 +36,7 @@ from app.utils.security import hash_password
 from app.utils.template_manager import TemplateManager
 from app.services.email_service import EmailService
 from app.services.jwt_service import create_access_token
+
 fake = Faker()
 
 settings = get_settings()
