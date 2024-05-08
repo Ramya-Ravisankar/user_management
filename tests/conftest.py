@@ -13,7 +13,7 @@ Fixtures:
 - `setup_database`: Sets up and tears down the database before and after each test.
 """
 
-# Standard library imports
+## Standard library imports
 from builtins import Exception, range, str
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch
@@ -36,7 +36,6 @@ from app.utils.security import hash_password
 from app.utils.template_manager import TemplateManager
 from app.services.email_service import EmailService
 from app.services.jwt_service import create_access_token
-
 fake = Faker()
 
 settings = get_settings()
@@ -45,14 +44,12 @@ engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
 AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
 
-
 @pytest.fixture
 def email_service():
     # Assuming the TemplateManager does not need any arguments for initialization
     template_manager = TemplateManager()
     email_service = EmailService(template_manager=template_manager)
     return email_service
-
 
 # this is what creates the http client for your api tests
 @pytest.fixture(scope="function")

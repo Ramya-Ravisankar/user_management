@@ -43,9 +43,6 @@ def user_response_data(user_base_data):
         "last_name": user_base_data["last_name"],
         "role": user_base_data["role"],
         "email": user_base_data["email"],
-        # "last_login_at": datetime.now(),
-        # "created_at": datetime.now(),
-        # "updated_at": datetime.now(),
         "links": []
     }
 
@@ -134,3 +131,26 @@ def test_user_update_profile_invalid(all_fields_none_update_data):
     with pytest.raises(ValidationError) as exc_info:
         UserUpdateProfile(**all_fields_none_update_data)
     assert "At least one field must be provided for update" in str(exc_info.value)
+
+# password validation test cases
+password_test_cases = [
+    ("Short7!", f"Password must be between {UserCreate.min_length} and {UserCreate.max_length} characters"),
+    ("A" * (UserCreate.max_length + 1), f"Password must be between {UserCreate.min_length} and {UserCreate.max_length} characters"),
+    ("nouppercase123!", "Password must contain at least one uppercase letter"),
+    ("NOLOWERCASE123!", "Password must contain at least one lowercase letter"),
+    ("NoSpecialCharacter123", "Password must contain at least one special character"),
+    ("NoDigitPassword!", "Password must contain at least one digit"),
+    ("Space Password123!", "Password must not contain spaces"),
+    ("ValidPassword1!", None)
+]
+
+@pytest.mark.parametrize("password, expected_error", password_test_cases)
+def test_password_validation(user_create_data, password, expected_error):
+    user_data = {**user_create_data, "password": password}
+    if expected_error:
+        with pytest.raises(ValidationError) as excinfo:
+            UserCreate(**user_data)
+        assert expected_error in str(excinfo.value), f"Expected error message: {expected_error}"
+    else:
+        user = UserCreate(**user_data)
+        assert user.password == password, "Valid password should pass validation without errors."
