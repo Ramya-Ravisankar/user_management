@@ -1,3 +1,4 @@
+from typing import ClassVar
 from builtins import ValueError, any, bool, str
 from pydantic import BaseModel, EmailStr, Field, validator, root_validator
 from typing import Optional, List
@@ -29,7 +30,7 @@ class UserBase(BaseModel):
     role: UserRole
 
     _validate_urls = validator('profile_picture_url', 'linkedin_profile_url', 'github_profile_url', pre=True, allow_reuse=True)(validate_url)
- 
+
     class Config:
         from_attributes = True
 
@@ -57,7 +58,7 @@ class UserUpdate(UserBase):
 class UserResponse(UserBase):
     id: uuid.UUID = Field(..., example=uuid.uuid4())
     email: EmailStr = Field(..., example="john.doe@example.com")
-    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())    
+    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())
     is_professional: Optional[bool] = Field(default=False, example=True)
     role: UserRole
 
@@ -74,10 +75,46 @@ class UserListResponse(BaseModel):
         "id": uuid.uuid4(), "nickname": generate_nickname(), "email": "john.doe@example.com",
         "first_name": "John", "bio": "Experienced developer", "role": "AUTHENTICATED",
         "last_name": "Doe", "bio": "Experienced developer", "role": "AUTHENTICATED",
-        "profile_picture_url": "https://example.com/profiles/john.jpg", 
-        "linkedin_profile_url": "https://linkedin.com/in/johndoe", 
+        "profile_picture_url": "https://example.com/profiles/john.jpg",
+        "linkedin_profile_url": "https://linkedin.com/in/johndoe",
         "github_profile_url": "https://github.com/johndoe"
     }])
     total: int = Field(..., example=100)
     page: int = Field(..., example=1)
     size: int = Field(..., example=10)
+
+# new feature
+class UserUpdateProfile(BaseModel):
+    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example="john_doe123")
+    first_name: Optional[str] = Field(None, example="John")
+    last_name: Optional[str] = Field(None, example="Doe")
+    bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
+    profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
+    linkedin_profile_url: Optional[str] =Field(None, example="https://linkedin.com/in/johndoe")
+    github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
+
+    @root_validator(pre=True)
+    def check_at_least_one_value(cls, values):
+        if not any(values.values()):
+            raise ValueError("At least one field must be provided for update")
+        return values
+
+     # Password validation
+    min_length: ClassVar[int] = 8
+    max_length: ClassVar[int] = 50
+
+    @validator('password')
+    def password_validation(cls, value):
+        if len(value) < cls.min_length or len(value) > cls.max_length:
+            raise ValueError(f'Password must be between {cls.min_length} and {cls.max_length} characters')
+        if not re.search("[A-Z]", value):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search("[a-z]", value):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r"\d", value):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search("[!@#$%^&*(),.?\":{}|<>]", value):
+            raise ValueError('Password must contain at least one special character')
+        if " " in value:
+            raise ValueError('Password must not contain spaces')
+        return value

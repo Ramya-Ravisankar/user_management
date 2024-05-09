@@ -58,24 +58,39 @@ class UserService:
                 logger.error("User with given email already exists.")
                 return None
             validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
-            new_user = User(**validated_data)
-            new_nickname = generate_nickname()
-            while await cls.get_by_nickname(session, new_nickname):
+
+            # Use provided nickname if it doesn't exist, otherwise generate a new one
+            nickname = validated_data.get('nickname')
+            if await cls.get_by_nickname(session, nickname):
+
                 new_nickname = generate_nickname()
-            new_user.nickname = new_nickname
+
+                while await cls.get_by_nickname(session, new_nickname):
+                    new_nickname = generate_nickname()
+                validated_data['nickname'] = new_nickname
+            else:
+                validated_data['nickname'] = nickname
+
+            new_user = User(**validated_data)
+
             logger.info(f"User Role: {new_user.role}")
             user_count = await cls.count(session)
-            new_user.role = UserRole.ADMIN if user_count == 0 else UserRole.ANONYMOUS            
-            if new_user.role == UserRole.ADMIN:
-                new_user.email_verified = True
 
-            else:
-                new_user.verification_token = generate_verification_token()
-                await email_service.send_verification_email(new_user)
-
+            new_user.role = UserRole.ADMIN if user_count == 0 else UserRole.ANONYMOUS
             session.add(new_user)
-            await session.commit()
-            return new_user
+
+            if new_user.role != UserRole.ADMIN:
+                new_user.verification_token = generate_verification_token()
+                await session.commit()
+                try:
+                    await email_service.send_verification_email(new_user)
+                except Exception as e:
+                    logger.error(f"Error sending verification email: {e}")
+            else:
+                new_user.email_verified = True
+                await session.commit()
+                return new_user
+
         except ValidationError as e:
             logger.error(f"Validation error during user creation: {e}")
             return None
@@ -121,7 +136,7 @@ class UserService:
     @classmethod
     async def register_user(cls, session: AsyncSession, user_data: Dict[str, str], get_email_service) -> Optional[User]:
         return await cls.create(session, user_data, get_email_service)
-    
+
 
     @classmethod
     async def login_user(cls, session: AsyncSession, email: str, password: str) -> Optional[User]:
@@ -170,6 +185,7 @@ class UserService:
         if user and user.verification_token == token:
             user.email_verified = True
             user.verification_token = None  # Clear the token once used
+
             user.role = UserRole.AUTHENTICATED
             session.add(user)
             await session.commit()
@@ -188,7 +204,7 @@ class UserService:
         result = await session.execute(query)
         count = result.scalar()
         return count
-    
+
     @classmethod
     async def unlock_user_account(cls, session: AsyncSession, user_id: UUID) -> bool:
         user = await cls.get_by_id(session, user_id)

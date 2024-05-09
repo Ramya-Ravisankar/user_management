@@ -1,5 +1,6 @@
 from builtins import str
 import pytest
+from app.services.user_service import UserService
 from httpx import AsyncClient
 from app.main import app
 from app.models.user_model import User, UserRole
@@ -93,7 +94,7 @@ async def test_login_success(async_client, verified_user):
         "password": "MySuperPassword$1234"
     }
     response = await async_client.post("/login/", data=urlencode(form_data), headers={"Content-Type": "application/x-www-form-urlencoded"})
-    
+
     # Check for successful login response
     assert response.status_code == 200
     data = response.json()
@@ -190,3 +191,98 @@ async def test_list_users_unauthorized(async_client, user_token):
         headers={"Authorization": f"Bearer {user_token}"}
     )
     assert response.status_code == 403  # Forbidden, as expected for regular user
+
+# Tests for skip & limit integer parameters
+@pytest.mark.asyncio
+async def test_list_users_invalid_skip_parameter(async_client: AsyncClient, admin_token: str):
+    response = await async_client.get(
+        "/users/?skip=-1",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 400
+    assert "Parameters 'skip' and 'limit' must be non-negative integers" in response.json()["detail"]
+
+@pytest.mark.asyncio
+async def test_list_users_invalid_limit_parameter(async_client: AsyncClient, admin_token: str):
+    response = await async_client.get(
+        "/users/?limit=0",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 400
+    assert "Parameters 'skip' and 'limit' must be non-negative integers" in response.json()["detail"]
+
+@pytest.fixture
+async def total_users(db_session):
+    # Replace with the actual way to count users in your database
+    count = await UserService.count(db_session)
+    return count
+
+@pytest.mark.asyncio
+async def test_list_users_valid_parameters(async_client: AsyncClient, admin_token: str):
+    response = await async_client.get(
+        "/users/?skip=0&limit=10",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    json_response = response.json()
+    assert 'items' in json_response
+    assert json_response["total"] >= len(json_response["items"])
+
+    # update profile tests
+@pytest.mark.asyncio
+async def test_update_profile_success(async_client, verified_user_and_token):
+    user, token = verified_user_and_token
+    headers = {"Authorization": f"Bearer {token}"}
+    updated_user_data = {
+        "first_name": "TestUpdate",
+        "last_name": "TestUpdate",
+        "bio": "TestBio",
+        "profile_picture_url": "https://www.example.com/test.jpg",
+        "linkedin_profile_url": "https://www.linkedin.com/test",
+        "github_profile_url": "https://www.github.com/test"
+    }
+    response = await async_client.put("/update-profile/", json=updated_user_data, headers=headers)
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["first_name"] == updated_user_data["first_name"]
+    assert response_data["last_name"] == updated_user_data["last_name"]
+    assert response_data["bio"] == updated_user_data["bio"]
+    assert response_data["profile_picture_url"] == updated_user_data["profile_picture_url"]
+    assert response_data["linkedin_profile_url"] == updated_user_data["linkedin_profile_url"]
+    assert response_data["github_profile_url"] == updated_user_data["github_profile_url"]
+
+@pytest.mark.asyncio
+async def test_update_profile_unauthorized(async_client: AsyncClient):
+    headers = {"Authorization": "Bearer invalid_or_missing_token"}
+
+    response = await async_client.put("/update-profile/", json={"nickname": "newNick"}, headers=headers)
+
+    # Check the response for the expected 401 Unauthorized status
+    assert response.status_code == 401
+    assert "detail" in response.json()
+    assert response.json()["detail"] == "Could not validate credentials"
+
+@pytest.mark.asyncio
+async def test_update_user_profile_duplicate_nickname(async_client, db_session, verified_user_and_token):
+    first_user, token = verified_user_and_token
+    test_user_1 = {
+            "nickname": "TestUser",
+            "first_name": "Test",
+            "last_name": "User",
+            "email": "testuser@example.com",
+            "hashed_password": hash_password("Secure*1234!"),
+            "role": UserRole.AUTHENTICATED,
+            "email_verified": True,
+            "is_locked": False,
+        }
+    first_test_user = User(**test_user_1)
+    db_session.add(first_test_user)
+    await db_session.commit()
+
+    headers = {"Authorization": f"Bearer {token}"}
+    updated_user_data = {
+        "nickname": "TestUser",
+    }
+    response = await async_client.put("/update-profile/", json=updated_user_data, headers=headers)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Nickname already exists"

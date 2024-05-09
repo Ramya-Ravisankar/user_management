@@ -45,14 +45,12 @@ engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
 AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
 
-
 @pytest.fixture
 def email_service():
     # Assuming the TemplateManager does not need any arguments for initialization
     template_manager = TemplateManager()
     email_service = EmailService(template_manager=template_manager)
     return email_service
-
 
 # this is what creates the http client for your api tests
 @pytest.fixture(scope="function")
@@ -210,7 +208,7 @@ async def manager_user(db_session: AsyncSession):
     await db_session.commit()
     return user
 
-# Configure a fixture for each type of user role you want to test
+#new feature
 @pytest.fixture(scope="function")
 def admin_token(admin_user):
     # Assuming admin_user has an 'id' and 'role' attribute
@@ -230,7 +228,6 @@ def user_token(user):
 @pytest.fixture
 def email_service():
     if settings.send_real_mail == 'true':
-        # Return the real email service when specifically testing email functionality
         return EmailService()
     else:
         # Otherwise, use a mock to prevent actual email sending
@@ -238,3 +235,24 @@ def email_service():
         mock_service.send_verification_email.return_value = None
         mock_service.send_user_email.return_value = None
         return mock_service
+
+@pytest.fixture(scope="function")
+async def verified_user_and_token(db_session):
+    user_data = {
+        "email": fake.email(),
+        "nickname": fake.user_name(),
+        "first_name": fake.first_name(),
+        "last_name": fake.last_name(),
+        "hashed_password": hash_password("Secure*1234!"),
+        "role": UserRole.AUTHENTICATED,
+        "email_verified": True,
+        "is_locked": False,
+    }
+    user = User(**user_data)
+    db_session.add(user)
+    await db_session.commit()
+
+    token_data = {"sub": str(user.email), "role": user.role.name}
+    token = create_access_token(data=token_data, expires_delta=timedelta(minutes=30))
+
+    return user, token
