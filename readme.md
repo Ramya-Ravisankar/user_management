@@ -23,10 +23,10 @@
 
 [Github_Commits_Link](https://github.com/Ramya-Ravisankar/user_management/commits/main/)
 
-![Docker_Hub_Image](Images/DockerHubImage.png)
+[Docker_Hub_Image](Images/DockerHubImage.png)
 
 [Docker_Hub_Link](https://hub.docker.com/repository/docker/ramyaravisankar/user_management)
 
-![Docker_Desktop_Image](Images/DockerDesktopImage.png)
+[Docker_Desktop_Image](Images/DockerDesktopImage.png)
 
 ## Test Coverage :
