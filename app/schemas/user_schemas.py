@@ -1,3 +1,4 @@
+from typing import ClassVar
 from builtins import ValueError, any, bool, str
 from pydantic import BaseModel, EmailStr, Field, validator, root_validator
 from typing import Optional, List
@@ -97,3 +98,23 @@ class UserUpdateProfile(BaseModel):
         if not any(values.values()):
             raise ValueError("At least one field must be provided for update")
         return values
+
+     # Password validation
+    min_length: ClassVar[int] = 8
+    max_length: ClassVar[int] = 50
+
+    @validator('password')
+    def password_validation(cls, value):
+        if len(value) < cls.min_length or len(value) > cls.max_length:
+            raise ValueError(f'Password must be between {cls.min_length} and {cls.max_length} characters')
+        if not re.search("[A-Z]", value):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search("[a-z]", value):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r"\d", value):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search("[!@#$%^&*(),.?\":{}|<>]", value):
+            raise ValueError('Password must contain at least one special character')
+        if " " in value:
+            raise ValueError('Password must not contain spaces')
+        return value
