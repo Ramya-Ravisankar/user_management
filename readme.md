@@ -2,7 +2,7 @@
 
 ## Issues :
 
-![Issues](Images/Issues.png)
+Issues - ![ Issues ](Images/Issues.png)
 
 ## Issues - Fixes provided and File Changes Information :
 
